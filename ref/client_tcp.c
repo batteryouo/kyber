@@ -27,7 +27,11 @@ int main() {
     }
 
     printf("Handshake complete (client)\n");
-
+    printf("SS[0..3] = %02x %02x %02x %02x\n",
+        shared_secret[0],
+        shared_secret[1],
+        shared_secret[2],
+        shared_secret[3]);
     close(sock);
 
     return 0;
