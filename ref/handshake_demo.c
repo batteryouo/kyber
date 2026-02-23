@@ -3,6 +3,28 @@
 #include <string.h>
 #include "api.h"
 
+/* Server side handshake */
+void server_handshake(
+    uint8_t *server_pk,
+    uint8_t *server_sk,
+    uint8_t *received_ct,
+    uint8_t *shared_secret_out){
+    /* Generate keypair */
+    pqcrystals_kyber768_ref_keypair(server_pk, server_sk);
+
+    /* Decapsulate ciphertext */
+    pqcrystals_kyber768_ref_dec(shared_secret_out, received_ct, server_sk);
+}
+
+/* Client side handshake */
+void client_handshake(
+    uint8_t *server_pk,
+    uint8_t *ciphertext_out,
+    uint8_t *shared_secret_out){
+    /* Encapsulate */
+    pqcrystals_kyber768_ref_enc(ciphertext_out, shared_secret_out, server_pk);
+}
+
 int main() {
 
     uint8_t server_pk[pqcrystals_kyber768_PUBLICKEYBYTES];
@@ -13,37 +35,23 @@ int main() {
     uint8_t client_ss[pqcrystals_kyber768_BYTES];
     uint8_t server_ss[pqcrystals_kyber768_BYTES];
 
-    printf("=== Kyber768 Handshake Demo ===\n");
+    printf("=== Split Handshake Demo ===\n");
 
-    /* Server generates keypair */
-    if (pqcrystals_kyber768_ref_keypair(server_pk, server_sk) != 0) {
-        printf("Keypair generation failed\n");
-        return -1;
-    }
+    /* ---- Step 1: Server generates keypair ---- */
+    pqcrystals_kyber768_ref_keypair(server_pk, server_sk);
 
-    printf("Server keypair generated\n");
+    /* ---- Step 2: Client encapsulates ---- */
+    client_handshake(server_pk, ciphertext, client_ss);
 
-    /* Client encapsulates */
-    if (pqcrystals_kyber768_ref_enc(ciphertext, client_ss, server_pk) != 0) {
-        printf("Encapsulation failed\n");
-        return -1;
-    }
+    /* ---- Step 3: Server decapsulates ---- */
+    pqcrystals_kyber768_ref_dec(server_ss, ciphertext, server_sk);
 
-    printf("Client encapsulation done\n");
-
-    /* Server decapsulates */
-    if (pqcrystals_kyber768_ref_dec(server_ss, ciphertext, server_sk) != 0) {
-        printf("Decapsulation failed\n");
-        return -1;
-    }
-
-    printf("Server decapsulation done\n");
-
+    /* ---- Step 4: Compare ---- */
     if (memcmp(client_ss, server_ss, pqcrystals_kyber768_BYTES) == 0) {
         printf("Handshake successful: shared secrets match\n");
-    } else {
-        printf("Handshake failed: shared secrets do NOT match\n");
-        return -1;
+    }
+    else {
+        printf("Handshake failed\n");
     }
 
     return 0;

@@ -90,6 +90,16 @@ nistkat/PQCgenKAT_kem768: $(SOURCESKECCAK) $(HEADERSKECCAK) nistkat/PQCgenKAT_ke
 nistkat/PQCgenKAT_kem1024: $(SOURCESKECCAK) $(HEADERSKECCAK) nistkat/PQCgenKAT_kem.c nistkat/rng.c nistkat/rng.h
 	$(CC) $(NISTFLAGS) -DKYBER_K=4 -o $@ $(SOURCESKECCAK) nistkat/rng.c nistkat/PQCgenKAT_kem.c $(LDFLAGS) -lcrypto
 
+########################################
+# handshake demo
+########################################
+HANDSHAKE_SRC = handshake_demo.c \
+	kem.c indcpa.c poly.c polyvec.c ntt.c reduce.c cbd.c \
+	fips202.c symmetric-shake.c randombytes.c verify.c
+
+handshake_demo: $(HANDSHAKE_SRC)
+	$(CC) $(CFLAGS) -O3 $(HANDSHAKE_SRC) -o handshake_demo
+
 clean:
 	-$(RM) -f *.gcno *.gcda *.lcov *.o *.so
 	-$(RM) -f test/test_kyber512
@@ -107,4 +117,5 @@ clean:
 	-$(RM) -f nistkat/*.req
 	-$(RM) -f nistkat/*.rsp
 	-$(RM) -rf lib/
+	-$(RM) -f *.o handshake_demo
 
