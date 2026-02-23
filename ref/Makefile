@@ -90,6 +90,9 @@ nistkat/PQCgenKAT_kem768: $(SOURCESKECCAK) $(HEADERSKECCAK) nistkat/PQCgenKAT_ke
 nistkat/PQCgenKAT_kem1024: $(SOURCESKECCAK) $(HEADERSKECCAK) nistkat/PQCgenKAT_kem.c nistkat/rng.c nistkat/rng.h
 	$(CC) $(NISTFLAGS) -DKYBER_K=4 -o $@ $(SOURCESKECCAK) nistkat/rng.c nistkat/PQCgenKAT_kem.c $(LDFLAGS) -lcrypto
 
+COMMON_SOURCES = kem.c indcpa.c poly.c polyvec.c ntt.c reduce.c cbd.c \
+                 fips202.c symmetric-shake.c randombytes.c verify.c \
+                 handshake.c net_utils.c crypto_utils.c secure_channel.c
 ########################################
 # handshake demo
 ########################################
@@ -99,6 +102,13 @@ HANDSHAKE_SRC = handshake_demo.c \
 
 handshake_demo: $(HANDSHAKE_SRC)
 	$(CC) $(CFLAGS) -O3 $(HANDSHAKE_SRC) -o handshake_demo
+
+client: client_tcp.c $(COMMON_SOURCES)
+	$(CC) $(CFLAGS) -DKYBER_K=3 client_tcp.c $(COMMON_SOURCES) -o client -lcrypto
+
+server: server_tcp.c $(COMMON_SOURCES)
+	$(CC) $(CFLAGS) -DKYBER_K=3 server_tcp.c $(COMMON_SOURCES) -o server -lcrypto
+
 
 clean:
 	-$(RM) -f *.gcno *.gcda *.lcov *.o *.so
@@ -118,4 +128,5 @@ clean:
 	-$(RM) -f nistkat/*.rsp
 	-$(RM) -rf lib/
 	-$(RM) -f *.o handshake_demo
+	-$(RM) -f client server
 

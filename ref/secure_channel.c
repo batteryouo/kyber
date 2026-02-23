@@ -35,12 +35,7 @@ int secure_send(secure_channel_t *ch,
     const uint8_t *key =
         ch->is_server ? ch->server_key : ch->client_key;
 
-    aes_gcm_encrypt(key,
-                    nonce,
-                    data,
-                    len,
-                    ciphertext,
-                    tag);
+    aes_gcm_encrypt(key, nonce, data, len, ciphertext, tag);
 
     ch->send_counter++;
 
