@@ -7,6 +7,7 @@
 #include "api.h"
 #include "net_utils.h"
 #include "handshake.h"
+#include "crypto_utils.h"
 
 #define PORT 8080
 
@@ -30,18 +31,58 @@ int main() {
     client_fd = accept(server_fd, (struct sockaddr *)&address, &addrlen);
     printf("Client connected\n");
 
+    /* ---------------- Handshake ---------------- */
+
     uint8_t shared_secret[pqcrystals_kyber768_BYTES];
 
     if (server_handshake(client_fd, shared_secret) != 0) {
         printf("Handshake failed\n");
         return -1;
     }
+
     printf("Handshake complete (server)\n");
-    printf("SS[0..3] = %02x %02x %02x %02x\n",
-        shared_secret[0],
-        shared_secret[1],
-        shared_secret[2],
-        shared_secret[3]);
+
+    /* ---------------- Key Derivation ---------------- */
+
+    uint8_t client_key[32];
+    uint8_t server_key[32];
+    uint8_t base_nonce[12];
+
+    derive_keys(shared_secret, client_key, server_key, base_nonce);
+
+    /* ---------------- Encrypted Receive ---------------- */
+
+    uint8_t ciphertext[1024];
+    uint8_t tag[16];
+    uint8_t plaintext[1024];
+    uint8_t nonce[12];
+
+    memcpy(nonce, base_nonce, 12);
+    nonce[11] ^= 1;   /* simple demo counter */
+
+    /* first receive length */
+    uint32_t msg_len;
+    recv_exact(client_fd, (uint8_t *)&msg_len, sizeof(msg_len));
+
+    /* receive ciphertext */
+    recv_exact(client_fd, ciphertext, msg_len);
+
+    /* receive tag */
+    recv_exact(client_fd, tag, 16);
+
+    if (aes_gcm_decrypt(client_key,
+                        nonce,
+                        ciphertext,
+                        msg_len,
+                        tag,
+                        plaintext) != 0) {
+        printf("Decrypt failed\n");
+        return -1;
+    }
+
+    plaintext[msg_len] = '\0';
+
+    printf("Decrypted message from client: %s\n", plaintext);
 
     close(client_fd);
     close(server_fd);
