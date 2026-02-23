@@ -76,3 +76,13 @@ int aes_gcm_decrypt(const uint8_t *key,
 
     return (ret > 0) ? 0 : -1;
 }
+
+void make_nonce(uint8_t *nonce,
+                const uint8_t *base_nonce,
+                uint64_t counter){
+    memcpy(nonce, base_nonce, 12);
+
+    for (int i = 0; i < 8; i++) {
+        nonce[11 - i] ^= (counter >> (8 * i)) & 0xff;
+    }
+}

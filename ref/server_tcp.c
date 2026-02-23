@@ -51,22 +51,21 @@ int main() {
     derive_keys(shared_secret, client_key, server_key, base_nonce);
 
     /* ---------------- Encrypted Receive ---------------- */
-
+    uint64_t send_counter = 1;
+    uint64_t recv_counter = 1;
     uint8_t ciphertext[1024];
     uint8_t tag[16];
     uint8_t plaintext[1024];
     uint8_t nonce[12];
 
-    memcpy(nonce, base_nonce, 12);
-    nonce[11] ^= 1;   /* simple demo counter */
+    make_nonce(nonce, base_nonce, recv_counter);
+
 
     /* first receive length */
     uint32_t msg_len;
     recv_exact(client_fd, (uint8_t *)&msg_len, sizeof(msg_len));
-
     /* receive ciphertext */
     recv_exact(client_fd, ciphertext, msg_len);
-
     /* receive tag */
     recv_exact(client_fd, tag, 16);
 
@@ -79,10 +78,34 @@ int main() {
         printf("Decrypt failed\n");
         return -1;
     }
-
+    recv_counter++;
     plaintext[msg_len] = '\0';
 
     printf("Decrypted message from client: %s\n", plaintext);
+
+    uint8_t reply[] = "Message received securely!";
+    uint8_t reply_cipher[1024];
+    uint8_t reply_tag[16];
+    uint8_t reply_nonce[12];
+
+    make_nonce(reply_nonce, base_nonce, send_counter);
+
+    int reply_len = strlen((char*)reply);
+
+    aes_gcm_encrypt(server_key,
+                    reply_nonce,
+                    reply,
+                    reply_len,
+                    reply_cipher,
+                    reply_tag);
+    send_counter++;
+    uint32_t send_len = reply_len;
+
+    send_exact(client_fd, (uint8_t *)&send_len, sizeof(send_len));
+    send_exact(client_fd, reply_cipher, send_len);
+    send_exact(client_fd, reply_tag, 16);
+
+    printf("Encrypted reply sent to client\n");
 
     close(client_fd);
     close(server_fd);

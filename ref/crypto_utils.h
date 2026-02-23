@@ -25,5 +25,7 @@ int aes_gcm_decrypt(const uint8_t *key,
                     const uint8_t *tag,
                     uint8_t *plaintext);
 
-
+void make_nonce(uint8_t *nonce,
+                const uint8_t *base_nonce,
+                uint64_t counter);
 #endif
