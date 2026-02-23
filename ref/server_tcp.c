@@ -8,6 +8,7 @@
 #include "net_utils.h"
 #include "handshake.h"
 #include "crypto_utils.h"
+#include "secure_channel.h"
 
 #define PORT 8080
 
@@ -42,70 +43,35 @@ int main() {
 
     printf("Handshake complete (server)\n");
 
-    /* ---------------- Key Derivation ---------------- */
+    /* -------- Secure Channel Init -------- */
 
-    uint8_t client_key[32];
-    uint8_t server_key[32];
-    uint8_t base_nonce[12];
+    secure_channel_t ch;
 
-    derive_keys(shared_secret, client_key, server_key, base_nonce);
+    secure_channel_init(&ch, client_fd, 1, shared_secret);/* is_server = 1 */
 
-    /* ---------------- Encrypted Receive ---------------- */
-    uint64_t send_counter = 1;
-    uint64_t recv_counter = 1;
-    uint8_t ciphertext[1024];
-    uint8_t tag[16];
-    uint8_t plaintext[1024];
-    uint8_t nonce[12];
+    /* -------- Receive Message -------- */
 
-    make_nonce(nonce, base_nonce, recv_counter);
+    uint8_t buffer[1024];
+    uint32_t len;
 
-
-    /* first receive length */
-    uint32_t msg_len;
-    recv_exact(client_fd, (uint8_t *)&msg_len, sizeof(msg_len));
-    /* receive ciphertext */
-    recv_exact(client_fd, ciphertext, msg_len);
-    /* receive tag */
-    recv_exact(client_fd, tag, 16);
-
-    if (aes_gcm_decrypt(client_key,
-                        nonce,
-                        ciphertext,
-                        msg_len,
-                        tag,
-                        plaintext) != 0) {
-        printf("Decrypt failed\n");
+    if (secure_recv(&ch, buffer, &len) != 0) {
+        printf("Secure receive failed\n");
         return -1;
     }
-    recv_counter++;
-    plaintext[msg_len] = '\0';
 
-    printf("Decrypted message from client: %s\n", plaintext);
+    buffer[len] = '\0';
+    printf("Received from client: %s\n", buffer);
 
-    uint8_t reply[] = "Message received securely!";
-    uint8_t reply_cipher[1024];
-    uint8_t reply_tag[16];
-    uint8_t reply_nonce[12];
+    /* -------- Send Reply -------- */
 
-    make_nonce(reply_nonce, base_nonce, send_counter);
+    char reply[] = "Secure reply from server";
 
-    int reply_len = strlen((char*)reply);
+    if (secure_send(&ch, (uint8_t*)reply, strlen(reply)) != 0) {
+        printf("Secure send failed\n");
+        return -1;
+    }
 
-    aes_gcm_encrypt(server_key,
-                    reply_nonce,
-                    reply,
-                    reply_len,
-                    reply_cipher,
-                    reply_tag);
-    send_counter++;
-    uint32_t send_len = reply_len;
-
-    send_exact(client_fd, (uint8_t *)&send_len, sizeof(send_len));
-    send_exact(client_fd, reply_cipher, send_len);
-    send_exact(client_fd, reply_tag, 16);
-
-    printf("Encrypted reply sent to client\n");
+    printf("Reply sent\n");
 
     close(client_fd);
     close(server_fd);
