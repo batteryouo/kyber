@@ -3,7 +3,9 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
+#include "api.h"
 #include "net_utils.h"
+#include "handshake.h"
 
 #define PORT 8080
 
@@ -17,14 +19,14 @@ int main() {
     inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
 
     connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+    uint8_t shared_secret[pqcrystals_kyber768_BYTES];
 
-    uint32_t received;
-    recv_exact(sock, (uint8_t *)&received, sizeof(received));
+    if (client_handshake(sock, shared_secret) != 0) {
+        printf("Handshake failed\n");
+        return -1;
+    }
 
-    printf("Received number: %u\n", received);
-
-    uint32_t reply = 987654321;
-    send_exact(sock, (uint8_t *)&reply, sizeof(reply));
+    printf("Handshake complete (client)\n");
 
     close(sock);
 

@@ -4,7 +4,9 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
+#include "api.h"
 #include "net_utils.h"
+#include "handshake.h"
 
 #define PORT 8080
 
@@ -28,14 +30,13 @@ int main() {
     client_fd = accept(server_fd, (struct sockaddr *)&address, &addrlen);
     printf("Client connected\n");
 
-    uint32_t number = 123456789;
+    uint8_t shared_secret[pqcrystals_kyber768_BYTES];
 
-    send_exact(client_fd, (uint8_t *)&number, sizeof(number));
-
-    uint32_t received;
-    recv_exact(client_fd, (uint8_t *)&received, sizeof(received));
-
-    printf("Received number: %u\n", received);
+    if (server_handshake(client_fd, shared_secret) != 0) {
+        printf("Handshake failed\n");
+        return -1;
+    }
+    printf("Handshake complete (server)\n");
 
     close(client_fd);
     close(server_fd);

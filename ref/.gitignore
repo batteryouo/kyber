@@ -16,5 +16,5 @@ nistkat/*.req
 nistkat/*.rsp
 
 handshake_demo
-client_tcp
-server_tcp
+client
+server
