@@ -53,25 +53,29 @@ int main() {
 
     uint8_t buffer[1024];
     uint32_t len;
+    while (1) {
 
-    if (secure_recv(&ch, buffer, &len) != 0) {
-        printf("Secure receive failed\n");
-        return -1;
+        if (secure_recv(&ch, buffer, &len) != 0) {
+            printf("Secure receive failed\n");
+            break;
+        }
+
+        if (len < sizeof(buffer))
+            buffer[len] = '\0';
+
+        printf("Client: %s\n", buffer);
+
+        printf("Server reply: ");
+        fgets((char*)buffer, sizeof(buffer), stdin);
+
+        size_t reply_len = strlen((char*)buffer);
+
+        if (secure_send(&ch, buffer, reply_len) != 0) {
+            printf("Secure send failed\n");
+            break;
+        }
     }
 
-    buffer[len] = '\0';
-    printf("Received from client: %s\n", buffer);
-
-    /* -------- Send Reply -------- */
-
-    char reply[] = "Secure reply from server";
-
-    if (secure_send(&ch, (uint8_t*)reply, strlen(reply)) != 0) {
-        printf("Secure send failed\n");
-        return -1;
-    }
-
-    printf("Reply sent\n");
 
     close(client_fd);
     close(server_fd);

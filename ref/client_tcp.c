@@ -68,14 +68,28 @@ int main(int argc, char **argv) {
     uint8_t buffer[1024];
     uint32_t len;
 
-    if (secure_recv(&ch, buffer, &len) != 0) {
-        printf("Secure receive failed\n");
-        return -1;
+    while (1) {
+
+        printf("Client message: ");
+        fgets((char*)buffer, sizeof(buffer), stdin);
+
+        size_t msg_len = strlen((char*)buffer);
+
+        if (secure_send(&ch, buffer, msg_len) != 0) {
+            printf("Secure send failed\n");
+            break;
+        }
+
+        if (secure_recv(&ch, buffer, &len) != 0) {
+            printf("Secure receive failed\n");
+            break;
+        }
+
+        if (len < sizeof(buffer))
+            buffer[len] = '\0';
+
+        printf("Server: %s\n", buffer);
     }
-
-    buffer[len] = '\0';
-    printf("Reply from server: %s\n", buffer);
-
     close(sock);
 
     return 0;
