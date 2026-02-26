@@ -3,31 +3,38 @@
 #include <string.h>
 #include "crypto_utils.h"
 
-int derive_keys(const uint8_t *shared_secret,
-                uint8_t *client_key,
-                uint8_t *server_key,
-                uint8_t *base_nonce){
+int derive_keys(const uint8_t *shared_secret, uint8_t *c2s_key, uint8_t *s2c_key, uint8_t *base_nonce){
+    /* 32 + 32 + 12 = 76 bytes */    
     uint8_t derived[76]; 
-    /* 32 + 32 + 12 = 76 bytes */
-
     EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
     if (!pctx) return -1;
 
     if (EVP_PKEY_derive_init(pctx) <= 0) return -1;
     if (EVP_PKEY_CTX_set_hkdf_md(pctx, EVP_sha256()) <= 0) return -1;
-    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, "kyber-demo", 10) <= 0) return -1;
-    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, shared_secret, 32) <= 0) return -1;
-    if (EVP_PKEY_CTX_add1_hkdf_info(pctx, "handshake data", 14) <= 0) return -1;
+
+    // Better: fixed salt length
+    const uint8_t salt[] = "kyber-secure-channel";
+    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, salt, sizeof(salt)) <= 0)
+        return -1;
+
+    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, shared_secret, 32) <= 0)
+        return -1;
+
+    const uint8_t info[] = "kyber-handshake-context";
+    if (EVP_PKEY_CTX_add1_hkdf_info(pctx, info, sizeof(info)) <= 0)
+        return -1;
 
     size_t outlen = sizeof(derived);
-    if (EVP_PKEY_derive(pctx, derived, &outlen) <= 0) return -1;
+    if (EVP_PKEY_derive(pctx, derived, &outlen) <= 0)
+        return -1;
 
-    memcpy(client_key, derived, 32);
-    memcpy(server_key, derived + 32, 32);
+    memcpy(c2s_key, derived, 32);
+    memcpy(s2c_key, derived + 32, 32);
     memcpy(base_nonce, derived + 64, 12);
 
     EVP_PKEY_CTX_free(pctx);
     return 0;
+
 }
 
 int aes_gcm_encrypt(const uint8_t *key,
@@ -77,9 +84,7 @@ int aes_gcm_decrypt(const uint8_t *key,
     return (ret > 0) ? 0 : -1;
 }
 
-void make_nonce(uint8_t *nonce,
-                const uint8_t *base_nonce,
-                uint64_t counter){
+void make_nonce(uint8_t *nonce, const uint8_t *base_nonce, uint64_t counter){
     memcpy(nonce, base_nonce, 12);
 
     for (int i = 0; i < 8; i++) {
