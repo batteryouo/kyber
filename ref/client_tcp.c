@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 
@@ -68,27 +69,48 @@ int main(int argc, char **argv) {
     uint8_t buffer[1024];
     uint32_t len;
 
+    fd_set readfds;
+
     while (1) {
 
-        printf("Client message: ");
-        fgets((char*)buffer, sizeof(buffer), stdin);
+        FD_ZERO(&readfds);
+        FD_SET(sock, &readfds);
+        FD_SET(STDIN_FILENO, &readfds);
 
-        size_t msg_len = strlen((char*)buffer);
+        int maxfd = (sock > STDIN_FILENO ? sock : STDIN_FILENO) + 1;
 
-        if (secure_send(&ch, buffer, msg_len) != 0) {
-            printf("Secure send failed\n");
+        if (select(maxfd, &readfds, NULL, NULL, NULL) < 0) {
+            perror("select");
             break;
         }
 
-        if (secure_recv(&ch, buffer, &len) != 0) {
-            printf("Secure receive failed\n");
-            break;
+        /* ---------- User input ---------- */
+        if (FD_ISSET(STDIN_FILENO, &readfds)) {
+
+            if (fgets((char*)buffer, sizeof(buffer), stdin) == NULL)
+                break;
+
+            size_t msg_len = strlen((char*)buffer);
+
+            if (secure_send(&ch, buffer, msg_len) != 0) {
+                printf("Secure send failed\n");
+                break;
+            }
         }
 
-        if (len < sizeof(buffer))
-            buffer[len] = '\0';
+        /* ---------- Incoming message ---------- */
+        if (FD_ISSET(sock, &readfds)) {
 
-        printf("Server: %s\n", buffer);
+            if (secure_recv(&ch, buffer, &len) != 0) {
+                printf("Secure receive failed\n");
+                break;
+            }
+
+            if (len < sizeof(buffer))
+                buffer[len] = '\0';
+
+            printf("Server: %s\n", buffer);
+        }
     }
     close(sock);
 

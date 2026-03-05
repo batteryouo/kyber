@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 
@@ -53,26 +54,47 @@ int main() {
 
     uint8_t buffer[1024];
     uint32_t len;
+    fd_set readfds;
+
     while (1) {
 
-        if (secure_recv(&ch, buffer, &len) != 0) {
-            printf("Secure receive failed\n");
+        FD_ZERO(&readfds);
+        FD_SET(client_fd, &readfds);
+        FD_SET(STDIN_FILENO, &readfds);
+
+        int maxfd = (client_fd > STDIN_FILENO ? client_fd : STDIN_FILENO) + 1;
+
+        if (select(maxfd, &readfds, NULL, NULL, NULL) < 0) {
+            perror("select");
             break;
         }
 
-        if (len < sizeof(buffer))
-            buffer[len] = '\0';
+        /* ---------- Incoming client message ---------- */
+        if (FD_ISSET(client_fd, &readfds)) {
 
-        printf("Client: %s\n", buffer);
+            if (secure_recv(&ch, buffer, &len) != 0) {
+                printf("Secure receive failed\n");
+                break;
+            }
 
-        printf("Server reply: ");
-        fgets((char*)buffer, sizeof(buffer), stdin);
+            if (len < sizeof(buffer))
+                buffer[len] = '\0';
 
-        size_t reply_len = strlen((char*)buffer);
+            printf("Client: %s\n", buffer);
+        }
 
-        if (secure_send(&ch, buffer, reply_len) != 0) {
-            printf("Secure send failed\n");
-            break;
+        /* ---------- Server input ---------- */
+        if (FD_ISSET(STDIN_FILENO, &readfds)) {
+
+            if (fgets((char*)buffer, sizeof(buffer), stdin) == NULL)
+                break;
+
+            size_t reply_len = strlen((char*)buffer);
+
+            if (secure_send(&ch, buffer, reply_len) != 0) {
+                printf("Secure send failed\n");
+                break;
+            }
         }
     }
 
