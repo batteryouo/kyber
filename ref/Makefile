@@ -107,7 +107,7 @@ client: client_tcp.c $(COMMON_SOURCES)
 	$(CC) $(CFLAGS) -DKYBER_K=3 client_tcp.c $(COMMON_SOURCES) -o client -lcrypto
 
 server: server_tcp.c $(COMMON_SOURCES)
-	$(CC) $(CFLAGS) -DKYBER_K=3 server_tcp.c $(COMMON_SOURCES) -o server -lcrypto
+	$(CC) $(CFLAGS) -DKYBER_K=3 server_tcp.c $(COMMON_SOURCES) -lpthread -o server -lcrypto
 
 
 clean:
