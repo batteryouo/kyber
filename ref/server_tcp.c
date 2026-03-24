@@ -15,7 +15,7 @@
 #define PORT 8080
 
 
-void* handle_client(void* arg) {
+static void* handle_client(void* arg) {
   int client_fd = *(int*)arg;
   free(arg);
 
